@@ -1232,7 +1232,7 @@ function commanderStripe() {
       if(data.url){
         // Sauvegarder commande dans Firebase
         if(clientActuel){
-          try{db.collection("commandes_clients").add({clientUid:clientActuel.uid,clientNom:prenom2+" "+nom2,clientEmail:email2,boutiqueUid:uid,boutiquePrenom:boutique.prenom||"",detail:articles.map(function(a){return a.quantite+"x "+a.nom;}).join(", "),total:(totalPanier()+getFraisPort()).toFixed(2)+"€",date:new Date().toISOString(),adresse:adresse2+", "+cp2+" "+ville2,tel:tel2,paiement:"stripe",statut:"en_attente"});}catch(e){}
+          try{db.collection("commandes_clients").add({clientUid:clientActuel.uid,clientNom:prenom2+" "+nom2,clientEmail:email2,boutiqueUid:uid,boutiquePrenom:boutique.prenom||"",detail:articles.map(function(a){return a.quantite+"x "+a.nom;}).join(", "),total:(totalPanier()+getFraisPort()).toFixed(2)+"€",date:new Date().toISOString(),adresse:adresse2+", "+cp2+" "+ville2,tel:tel2,paiement:"stripe"});}catch(e){}
         }
         window.location.href=data.url;
       } else {
@@ -1325,7 +1325,7 @@ function commander(useStripe) {
     var email = document.getElementById("coord-email").value.trim();
     if (!nom||!prenom||!adresse||!cp||!ville||!tel||!email) { alert("Merci de remplir tous les champs."); return; }
 
-   var lignes = [];
+    var lignes = [];
     Object.keys(panier).forEach(function(ref) {
       var prod = getProduitByRef(ref);
       if (prod && panier[ref] > 0) lignes.push(panier[ref] + "x " + prod.nom);
@@ -1335,59 +1335,61 @@ function commander(useStripe) {
     var paypalUrl = boutique.paypal ? boutique.paypal + "/" + montant + "EUR" : null;
     var stripeUrl = boutique.stripeKey || null;
     var redirectUrl = useStripe && stripeUrl ? stripeUrl : paypalUrl;
-
-    // Sauvegarder la commande EN ATTENTE d'abord
-    var commandeData = {
-      clientNom: prenom + " " + nom,
-      clientEmail: email,
-      boutiqueUid: uid,
-      boutiquePrenom: boutique.prenom || "",
-      detail: lignes.join(", "),
-      total: montant + "€",
-      date: new Date().toISOString(),
-      adresse: adresse + ", " + cp + " " + ville,
-      tel: tel,
-      statut: "en_attente"
-    };
-    if (clientActuel) commandeData.clientUid = clientActuel.uid;
-
-    // Email confirmation cliente
-    if (email) {
+    try { db.collection("boutiques").doc(uid).collection("stats").doc("global").set({commandes:firebase.firestore.FieldValue.increment(1),chiffreAffaires:firebase.firestore.FieldValue.increment(parseFloat(montant))},{merge:true}); } catch(e) {}
+    // Tampon fidélité automatique
+    if (clientActuel && boutique.fidelite && boutique.fidelite.actif) {
       try {
-        emailjs.send("service_wr9mlhk", "template_sq7ofz6", {
-          to_email: email,
-          client_prenom: prenom,
-          vdi_prenom: boutique.prenom || "Votre conseillère",
-          commande_detail: lignes.join("\n"),
-          total: montant + "€"
+        var carteRef = db.collection("fidelite_cartes").doc(clientActuel.uid + "_" + uid);
+        carteRef.get().then(function(snap) {
+          if (snap.exists) {
+            carteRef.update({ tampons: firebase.firestore.FieldValue.increment(1), updatedAt: new Date().toISOString() });
+          } else {
+            carteRef.set({ clientUid: clientActuel.uid, clientNom: (clientActuel.displayName||clientActuel.email), clientEmail: clientActuel.email, boutiqueUid: uid, tampons: 1, actif: true, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
+          }
         });
       } catch(e) {}
     }
 
-    // Sauvegarder puis rediriger
-    db.collection("commandes_clients").add(commandeData).then(function() {
-      formModal.remove();
-      if (useStripe && stripeUrl) {
-        // Paiement Stripe via API
-        fetch("https://baa-vitrine.vercel.app/api/checkout", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ montant: montant, stripeKey: stripeUrl, boutiqueNom: boutique.prenom || "Boutique Mihi" })
-        }).then(function(r) { return r.json(); }).then(function(data) {
-          if (data.url) { window.location.href = data.url; }
-          else { alert("Erreur Stripe. Réessayez."); }
-        }).catch(function() { alert("Erreur de connexion Stripe."); });
-      } else {
-        if (navigator.clipboard) {
-          navigator.clipboard.writeText(note).then(function() {
-            alert("✅ Coordonnées copiées !\n\nCollez-les dans le message PayPal.");
-            window.open(redirectUrl, "_blank");
-          });
-        } else { window.open(redirectUrl, "_blank"); }
-      }
-    }).catch(function() {
-      alert("Erreur de sauvegarde. Réessayez.");
-    });
+    // Sauvegarder la commande pour la cliente
+    if (clientActuel) {
+      try {
+        db.collection("commandes_clients").add({
+          clientUid: clientActuel.uid,
+          clientNom: prenom + " " + nom,
+          clientEmail: email,
+          boutiqueUid: uid,
+          boutiquePrenom: boutique.prenom || "",
+          detail: lignes.join(", "),
+          total: montant + "€",
+          date: new Date().toISOString(),
+          adresse: adresse + ", " + cp + " " + ville,
+          tel: tel
+        });
+      } catch(e) {}
+    }
+    // Envoyer email à la VDI si email configuré
+    if (boutique.emailVdi) {
+      try {
+        emailjs.send("service_wr9mlhk", "template_nkfnrnd", {
+          vdi_prenom: boutique.prenom || "Conseillère",
+          to_email: boutique.emailVdi,
+          client_nom: nom,
+          client_prenom: prenom,
+          client_adresse: adresse + ", " + cp + " " + ville,
+          client_tel: tel,
+          client_email: email,
+          commande_detail: lignes.join("\n"),
+          total: montant + "€"
+        });
+      } catch(e) { console.log("Email error:", e); }
+    }
+    formModal.remove();
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(note).then(function() {
+        alert("✅ Coordonnées et commande copiées !\n\nCollez-les dans le message PayPal.");
+        window.open(redirectUrl, "_blank");
+      });
+    } else { window.open(redirectUrl, "_blank"); }
   };
   formBox.appendChild(valBtn);
   formModal.appendChild(formBox);
