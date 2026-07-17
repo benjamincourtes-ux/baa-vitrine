@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rejoins mon équipe Mihi</title>
+<script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+<style>
+* { box-sizing:border-box; margin:0; padding:0; }
+body { font-family:Arial,sans-serif; background:#f8f3ee; color:#3a3a3a; }
+.hero { background:linear-gradient(135deg,#c9a86a,#f5d48a); padding:40px 20px; text-align:center; }
+.hero-photo { width:100px; height:100px; border-radius:50%; object-fit:cover; border:4px solid white; box-shadow:0 4px 20px rgba(0,0,0,0.2); margin-bottom:16px; }
+.hero h1 { color:#1a0a00; font-size:22px; margin-bottom:6px; }
+.hero p { color:rgba(0,0,0,0.65); font-size:14px; line-height:1.6; }
+.section { padding:24px 20px; max-width:600px; margin:0 auto; }
+.card { background:white; border-radius:16px; padding:20px; margin-bottom:16px; border:1px solid #e8d4b0; }
+.card h2 { color:#8b735d; font-size:16px; margin-bottom:14px; }
+.stat-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.stat { background:#f8f3ee; border-radius:12px; padding:14px; text-align:center; }
+.stat-num { color:#c9a86a; font-size:24px; font-weight:bold; }
+.stat-label { color:#999; font-size:11px; margin-top:2px; }
+.palier { display:flex; align-items:center; justify-content:space-between; padding:10px 0; border-bottom:1px solid #f0e6d3; }
+.palier:last-child { border-bottom:none; }
+.palier-nom { color:#3a3a3a; font-size:13px; font-weight:bold; }
+.palier-ca { color:#999; font-size:12px; }
+.palier-comm { color:#c9a86a; font-size:13px; font-weight:bold; }
+.simulateur { }
+.sim-label { color:#8b735d; font-size:13px; font-weight:bold; margin-bottom:6px; display:block; }
+.sim-slider { width:100%; -webkit-appearance:none; height:6px; border-radius:3px; background:#e8d4b0; outline:none; margin-bottom:4px; }
+.sim-slider::-webkit-slider-thumb { -webkit-appearance:none; width:22px; height:22px; border-radius:50%; background:#c9a86a; cursor:pointer; }
+.sim-value { color:#c9a86a; font-size:13px; font-weight:bold; text-align:right; margin-bottom:14px; }
+.result-box { background:linear-gradient(135deg,#c9a86a,#f5d48a); border-radius:12px; padding:16px; text-align:center; margin-top:8px; }
+.result-box p { color:#1a0a00; font-size:13px; margin-bottom:4px; }
+.result-box .big { font-size:28px; font-weight:bold; }
+.result-box .palier-actuel { font-size:12px; opacity:0.7; margin-top:4px; }
+.temoignage { background:#f8f3ee; border-radius:12px; padding:14px; margin-bottom:10px; border-left:3px solid #c9a86a; }
+.temoignage p { color:#555; font-size:13px; line-height:1.6; font-style:italic; }
+.temoignage span { color:#8b735d; font-size:12px; font-weight:bold; display:block; margin-top:6px; }
+.form-group { margin-bottom:12px; }
+.form-group label { color:#8b735d; font-size:12px; font-weight:bold; display:block; margin-bottom:4px; }
+.form-group input, .form-group textarea { width:100%; padding:12px; border:1px solid #e8d4b0; border-radius:10px; font-size:14px; background:white; }
+.btn-main { width:100%; background:linear-gradient(135deg,#c9a86a,#f5d48a); color:#1a0a00; border:none; padding:16px; border-radius:14px; font-weight:bold; font-size:16px; cursor:pointer; touch-action:manipulation; margin-bottom:10px; }
+.btn-boutique { width:100%; background:white; color:#8b735d; border:2px solid #c9a86a; padding:14px; border-radius:14px; font-weight:bold; font-size:14px; cursor:pointer; touch-action:manipulation; text-decoration:none; display:block; text-align:center; }
+.avantage { display:flex; align-items:flex-start; gap:12px; margin-bottom:12px; }
+.avantage-icon { font-size:28px; flex-shrink:0; }
+.avantage-text h3 { color:#3a3a3a; font-size:14px; font-weight:bold; margin-bottom:3px; }
+.avantage-text p { color:#999; font-size:13px; line-height:1.5; }
+.loading { text-align:center; padding:60px 20px; color:#8b735d; }
+.footer { text-align:center; padding:20px; color:#999; font-size:12px; }
+</style>
+</head>
+<body>
+
+<div id="app"><div class="loading">⏳ Chargement...</div></div>
+
+<script>
+var firebaseConfig = {
+  apiKey: "AIzaSyC94wzVrEtrqxhshdFsRHR7HiL5wJEkYG0",
+  authDomain: "beauty-addict-academy.firebaseapp.com",
+  projectId: "beauty-addict-academy",
+  storageBucket: "beauty-addict-academy.firebasestorage.app",
+  messagingSenderId: "311669980538",
+  appId: "1:311669980538:web:eaf8a95e987473c6412ac3"
+};
+firebase.initializeApp(firebaseConfig);
+var db = firebase.firestore();
+emailjs.init("D_JtKhPDgOQWi_ECO");
+
+var PALIERS = [
+  {nom:"Consultant",min:100,max:249,comm:20,equipe:2},
+  {nom:"Conseiller",min:250,max:499,comm:30,equipe:4},
+  {nom:"Conseiller Principal",min:500,max:999,comm:30,equipe:6},
+  {nom:"Responsable",min:1000,max:1499,comm:30,equipe:8},
+  {nom:"Cadre Supérieur",min:1500,max:1999,comm:30,equipe:10},
+  {nom:"Partenaire",min:2000,max:2999,comm:30,equipe:12},
+  {nom:"Directeur Adjoint",min:3000,max:4999,comm:30,equipe:14},
+  {nom:"Directeur",min:5000,max:99999,comm:30,equipe:17},
+];
+
+function getPalier(ca) {
+  for (var i=PALIERS.length-1;i>=0;i--) { if (ca >= PALIERS[i].min) return PALIERS[i]; }
+  return {nom:"Débutante",min:0,max:99,comm:20,equipe:0};
+}
+
+function getUid() { return new URLSearchParams(window.location.search).get("uid"); }
+
+function renderPage(b) {
+  var uid = getUid();
+  var app = document.getElementById("app");
+  app.innerHTML = "";
+
+  // HERO LUXE
+  var hero = document.createElement("div");
+  hero.style.cssText = "position:relative;overflow:hidden;background:#0d0d0d;padding:40px 20px;text-align:center;min-height:260px;display:flex;flex-direction:column;align-items:center;justify-content:center;";
+
+  // SVG marbre en fond
+  hero.innerHTML = '<svg style="position:absolute;inset:0;width:100%;height:100%;" viewBox="0 0 680 260" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="vg1" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#f5d48a;stop-opacity:0"/><stop offset="40%" style="stop-color:#f5d48a;stop-opacity:0.5"/><stop offset="100%" style="stop-color:#c9a86a;stop-opacity:0"/></linearGradient><linearGradient id="vg2" x1="100%" y1="0%" x2="0%" y2="100%"><stop offset="0%" style="stop-color:#f5d48a;stop-opacity:0"/><stop offset="40%" style="stop-color:#f5d48a;stop-opacity:0.5"/><stop offset="100%" style="stop-color:#c9a86a;stop-opacity:0"/></linearGradient></defs><rect width="680" height="260" fill="#0d0d0d"/><path d="M 0 40 Q 60 55 80 90 Q 100 125 150 130 Q 180 132 200 150" stroke="url(#vg1)" stroke-width="1.5" fill="none"/><path d="M 0 80 Q 40 95 70 120 Q 100 148 130 155 Q 160 160 180 180" stroke="#c9a86a" stroke-width="0.8" fill="none" opacity="0.3"/><path d="M 0 110 Q 50 100 90 115 Q 130 130 170 160" stroke="#c9a86a" stroke-width="2.5" fill="none" opacity="0.12"/><path d="M 0 112 Q 50 102 90 117 Q 130 132 170 162" stroke="#f5d48a" stroke-width="0.8" fill="none" opacity="0.35"/><path d="M 0 200 Q 30 185 60 195 Q 90 205 120 230" stroke="#f5d48a" stroke-width="0.8" fill="none" opacity="0.2"/><path d="M 680 40 Q 620 55 600 90 Q 580 125 530 130 Q 500 132 480 150" stroke="url(#vg2)" stroke-width="1.5" fill="none"/><path d="M 680 80 Q 640 95 610 120 Q 580 148 550 155 Q 520 160 500 180" stroke="#c9a86a" stroke-width="0.8" fill="none" opacity="0.3"/><path d="M 680 110 Q 630 100 590 115 Q 550 130 510 160" stroke="#c9a86a" stroke-width="2.5" fill="none" opacity="0.12"/><path d="M 680 112 Q 630 102 590 117 Q 550 132 510 162" stroke="#f5d48a" stroke-width="0.8" fill="none" opacity="0.35"/><path d="M 680 200 Q 650 185 620 195 Q 590 205 560 230" stroke="#f5d48a" stroke-width="0.8" fill="none" opacity="0.2"/><line x1="0" y1="1" x2="680" y2="1" stroke="#c9a86a" stroke-width="1.5"/><line x1="0" y1="259" x2="680" y2="259" stroke="#c9a86a" stroke-width="1.5"/></svg>';
+
+  // Phénix gauche (retourné vers la droite)
+  var phenixG = document.createElement("img");
+  phenixG.src = "https://res.cloudinary.com/dxcfq3nyl/image/upload/v1784196592/ph%C3%A9nix_enflamm%C3%A9_1_cosdgv.jpg";
+  phenixG.style.cssText = "position:absolute;left:0;top:0;height:100%;width:220px;object-fit:cover;object-position:center;opacity:0.85;transform:scaleX(-1);mask-image:linear-gradient(to right, rgba(0,0,0,0) 0%, rgba(0,0,0,0.8) 40%, rgba(0,0,0,1) 100%);-webkit-mask-image:linear-gradient(to right, rgba(0,0,0,0) 0%, rgba(0,0,0,0.8) 40%, rgba(0,0,0,1) 100%);";
+  hero.appendChild(phenixG);
+
+  // Phénix droit (normal vers la gauche)
+  var phenixD = document.createElement("img");
+  phenixD.src = "https://res.cloudinary.com/dxcfq3nyl/image/upload/v1784196592/ph%C3%A9nix_enflamm%C3%A9_1_cosdgv.jpg";
+  phenixD.style.cssText = "position:absolute;right:0;top:0;height:100%;width:220px;object-fit:cover;object-position:center;opacity:0.85;mask-image:linear-gradient(to right, rgba(0,0,0,0) 0%, rgba(0,0,0,0.8) 40%, rgba(0,0,0,1) 100%);-webkit-mask-image:linear-gradient(to right, rgba(0,0,0,0) 0%, rgba(0,0,0,0.8) 40%, rgba(0,0,0,1) 100%);";
+  hero.appendChild(phenixD);
+
+  // Contenu central
+  var heroContent = document.createElement("div");
+  heroContent.style.cssText = "position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;";
+
+  if (b.photoProfil) {
+    var img = document.createElement("img");
+    img.src = b.photoProfil;
+    img.style.cssText = "width:90px;height:90px;border-radius:50%;object-fit:cover;border:2px solid #c9a86a;box-shadow:0 0 20px rgba(201,168,106,0.4);margin-bottom:14px;";
+    heroContent.appendChild(img);
+  }
+
+  var h1 = document.createElement("h1");
+  h1.style.cssText = "color:#f5d48a;font-size:22px;margin-bottom:6px;font-family:Georgia,serif;text-shadow:0 2px 10px rgba(0,0,0,0.8);";
+  h1.textContent = "Rejoins l'équipe de " + (b.prenom||"votre conseillère") + " ! 🌿";
+  heroContent.appendChild(h1);
+
+  var heroSub = document.createElement("p");
+  heroSub.style.cssText = "color:#c9a86a;font-size:13px;line-height:1.6;text-shadow:0 1px 6px rgba(0,0,0,0.8);letter-spacing:1px;";
+  heroSub.textContent = "Boutique en ligne • Académie • Accompagnement";
+  heroContent.appendChild(heroSub);
+
+  // Ligne décorative
+  var orneDiv = document.createElement("div");
+  orneDiv.style.cssText = "display:flex;align-items:center;gap:8px;margin-top:10px;";
+  orneDiv.innerHTML = "<div style='height:1px;width:60px;background:linear-gradient(to right,transparent,#c9a86a);'></div><div style='width:6px;height:6px;border-radius:50%;border:1px solid #c9a86a;'></div><div style='height:1px;width:60px;background:linear-gradient(to left,transparent,#c9a86a);'></div>";
+  heroContent.appendChild(orneDiv);
+
+  var acadText = document.createElement("p");
+  acadText.style.cssText = "color:#8b6914;font-size:10px;letter-spacing:3px;margin-top:8px;text-transform:uppercase;";
+  acadText.textContent = "Académie Beauty Addict";
+  heroContent.appendChild(acadText);
+
+  hero.appendChild(heroContent);
+  app.appendChild(hero);
+
+  var section = document.createElement("div"); section.className="section";
+
+  // BANNIÈRE RISQUE ZÉRO
+  var risqueDiv = document.createElement("div");
+  risqueDiv.style.cssText = "background:#e6f7ec;border:2px solid #27AE60;border-radius:14px;padding:14px;margin:0 0 16px;text-align:center;";
+  risqueDiv.innerHTML = "<p style='color:#27AE60;font-size:13px;font-weight:bold;margin:0 0 6px;'>✅ Rejoindre l'équipe c'est sans risque</p><p style='color:#555;font-size:12px;margin:0;line-height:1.6;'>Aucun frais d'inscription • Aucun stock obligatoire • Tu peux arrêter quand tu veux • Tu profites des produits à prix préférentiel — pour toi et ta famille ✨</p>";
+  section.appendChild(risqueDiv);
+
+  // COMPTE À REBOURS OFFRE
+  var chronoDiv = document.createElement("div");
+  chronoDiv.style.cssText = "background:linear-gradient(135deg,#c0392b,#e74c3c);border-radius:14px;padding:16px;margin:0 0 16px;text-align:center;";
+  chronoDiv.innerHTML = "<p style='color:white;font-size:11px;font-weight:bold;margin:0 0 4px;letter-spacing:2px;'>⏰ OFFRE LIMITÉE</p><p style='color:#f5d48a;font-size:16px;font-weight:bold;margin:0 0 8px;'>-10€ sur ta première commande</p><p style='color:rgba(255,255,255,0.8);font-size:12px;margin:0 0 10px;'>Pour toute inscription avant minuit ce soir</p><div id='chrono-display' style='display:flex;gap:8px;justify-content:center;'></div>";
+  section.appendChild(chronoDiv);
+
+  function updateChrono() {
+    var now = new Date();
+    var midnight = new Date(now);
+    midnight.setHours(24,0,0,0);
+    var diff = midnight - now;
+    var h = Math.floor(diff/3600000);
+    var m = Math.floor((diff%3600000)/60000);
+    var s = Math.floor((diff%60000)/1000);
+    var display = document.getElementById("chrono-display");
+    if (display) {
+      display.innerHTML = [
+        {val:h,label:"heures"},
+        {val:m,label:"min"},
+        {val:s,label:"sec"}
+      ].map(function(u){
+        return "<div style='background:rgba(0,0,0,0.3);border-radius:8px;padding:8px 12px;'><p style='color:white;font-size:24px;font-weight:bold;margin:0;line-height:1;'>"+String(u.val).padStart(2,"0")+"</p><p style='color:rgba(255,255,255,0.7);font-size:10px;margin:2px 0 0;'>"+u.label+"</p></div>";
+      }).join("");
+    }
+  }
+  updateChrono();
+  setInterval(updateChrono, 1000);
+
+  // BOUTIQUE DEMO
+  var boutiqueCard = document.createElement("div"); boutiqueCard.className="card";
+  boutiqueCard.innerHTML="<h2>🛍️ Ta boutique en ligne offerte</h2><p style='color:#666;font-size:13px;line-height:1.6;margin-bottom:14px;'>Chez Mihi, la boutique en ligne coûte cher. Avec notre académie, tu l'as <strong>gratuitement</strong> — personnalisée avec tes photos, tes produits, tes prix.</p>";
+  var demoBtn = document.createElement("a"); demoBtn.href="https://baa-vitrine.vercel.app/?uid="+uid; demoBtn.target="_blank"; demoBtn.className="btn-boutique"; demoBtn.textContent="👀 Voir la boutique de "+(b.prenom||"votre conseillère");
+  boutiqueCard.appendChild(demoBtn); section.appendChild(boutiqueCard);
+
+  // POURQUOI MOI ET PAS UNE AUTRE
+  var pourquoiCard = document.createElement("div"); pourquoiCard.className="card";
+  pourquoiCard.innerHTML = "<h2>🤔 Pourquoi rejoindre mon équipe plutôt qu'une autre ?</h2><p style='color:#666;font-size:13px;margin-bottom:14px;line-height:1.5;'>Il existe des centaines de conseillères Mihi en France. Voilà ce qui nous différencie :</p>";
+  var tableau = document.createElement("table");
+  tableau.style.cssText = "width:100%;border-collapse:collapse;font-size:13px;";
+  var thead = document.createElement("thead");
+  thead.innerHTML = "<tr><th style='background:linear-gradient(135deg,#c9a86a,#f5d48a);color:#1a0a00;padding:10px;border-radius:8px 0 0 0;text-align:left;'>Avec "+ (b.prenom||"moi") +" 🐦‍🔥</th><th style='background:#f0e6d3;color:#8b735d;padding:10px;border-radius:0 8px 0 0;text-align:left;'>Avec une autre leader</th></tr>";
+  tableau.appendChild(thead);
+  var tbody = document.createElement("tbody");
+  var lignes = [
+    ["🎓 Académie complète offerte", "⚠️ Peu de formation"],
+    ["🛍️ Boutique en ligne gratuite", "💸 Boutique payante"],
+    ["🤖 Coach IA 24h/24", "❌ Seule face à ses questions"],
+    ["📱 Générateur de posts IA", "❌ Panne d'inspiration"],
+    ["🎯 Accompagnement personnalisé", "❌ Livrée à elle-même"],
+    ["📊 Tableau de bord CA en temps réel", "❌ Aucun suivi"],
+    ["🗓️ Plan d'action quotidien automatique", "❌ Ne sait pas par où commencer"],
+    ["👥 Équipe soudée et motivée", "❌ Isolée"],
+  ];
+  lignes.forEach(function(ligne, i) {
+    var tr = document.createElement("tr");
+    tr.style.cssText = "background:" + (i%2===0?"white":"#fdf8f3") + ";";
+    tr.innerHTML = "<td style='padding:10px;border-bottom:1px solid #f0e6d3;color:#3a3a3a;font-weight:bold;'>"+ligne[0]+"</td><td style='padding:10px;border-bottom:1px solid #f0e6d3;color:#999;'>"+ligne[1]+"</td>";
+    tbody.appendChild(tr);
+  });
+  tableau.appendChild(tbody);
+  pourquoiCard.appendChild(tableau);
+  section.appendChild(pourquoiCard);
+
+  // DANS 3 MOIS
+  var troisMoisCard = document.createElement("div"); troisMoisCard.className="card";
+  troisMoisCard.style.cssText += "background:linear-gradient(135deg,#f8f3ee,#f3e7d3);";
+  troisMoisCard.innerHTML = "<h2>✨ Dans 3 mois tu pourrais...</h2><p style='color:#666;font-size:13px;margin-bottom:14px;line-height:1.5;'>Imagine ta vie dans 3 mois après avoir rejoint l'équipe :</p>";
+  var projections = [
+    "🛍️ Tu as 15 clientes régulières qui commandent chaque mois",
+    "💰 Tu reçois des notifications de commandes pendant que tu dors",
+    "📱 Tu publies du contenu en 30 secondes grâce à l'IA",
+    "🏆 Tu as validé tes formations et tu montes en statut",
+    "👥 Tu commences à bâtir ta propre équipe",
+    "🐦‍🔥 Tu te sens fière et épanouie dans ton activité",
+  ];
+  projections.forEach(function(p) {
+    var div = document.createElement("div");
+    div.style.cssText = "display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #e8d4b0;";
+    div.innerHTML = "<p style='color:#3a3a3a;font-size:13px;margin:0;line-height:1.5;'>"+p+"</p>";
+    troisMoisCard.appendChild(div);
+  });
+  section.appendChild(troisMoisCard);
+
+  // AVANT / APRÈS
+  var avantApresCard = document.createElement("div"); avantApresCard.className="card";
+  avantApresCard.innerHTML = "<h2>🔄 Avant / Après avoir rejoint l'équipe</h2>";
+  var grid = document.createElement("div"); grid.style.cssText="display:grid;grid-template-columns:1fr 1fr;gap:12px;";
+  var avantDiv = document.createElement("div"); avantDiv.style.cssText="background:#fee;border-radius:12px;padding:14px;";
+  avantDiv.innerHTML = "<p style='color:#c0392b;font-size:12px;font-weight:bold;margin:0 0 10px;text-align:center;'>😰 AVANT</p>";
+  var avant = [
+    "Je ne sais pas comment trouver des clientes",
+    "Je ne sais pas quoi publier",
+    "J'ai peur de déranger mes proches",
+    "Je me sens seule face aux obstacles",
+  ];
+  avant.forEach(function(a) {
+    var p = document.createElement("p"); p.style.cssText="color:#c0392b;font-size:12px;margin:0 0 8px;line-height:1.4;padding-left:8px;border-left:2px solid #e74c3c;"; p.textContent=a; avantDiv.appendChild(p);
+  });
+  var apresDiv = document.createElement("div"); apresDiv.style.cssText="background:#e6f7ec;border-radius:12px;padding:14px;";
+  apresDiv.innerHTML = "<p style='color:#27AE60;font-size:12px;font-weight:bold;margin:0 0 10px;text-align:center;'>🤩 APRÈS</p>";
+  var apres = [
+    "Ma boutique tourne et les commandes arrivent",
+    "L'IA génère mes posts en quelques secondes",
+    "Je développe mon réseau naturellement",
+    "Je fais partie d'une équipe qui me booste !",
+  ];
+  apres.forEach(function(a) {
+    var p = document.createElement("p"); p.style.cssText="color:#27AE60;font-size:12px;margin:0 0 8px;line-height:1.4;padding-left:8px;border-left:2px solid #27AE60;"; p.textContent=a; apresDiv.appendChild(p);
+  });
+  grid.appendChild(avantDiv); grid.appendChild(apresDiv);
+  avantApresCard.appendChild(grid);
+  section.appendChild(avantApresCard);
+
+  // SECTION PRODUITS MIHI
+  var mihiCard = document.createElement("div"); mihiCard.className="card";
+  mihiCard.innerHTML = "<h2>🌿 Pourquoi les produits Mihi ?</h2><p style='color:#666;font-size:13px;line-height:1.6;margin-bottom:16px;font-style:italic;'>\"Juste ce qu'il faut pour moi\" — des produits pensés pour chaque femme, avec amour et exigence.</p>";
+  var atouts = [
+    {icon:"🏭", titre:"25 ans d'expérience", desc:"Dans la production de cosmétiques pour le visage, le corps et les cheveux."},
+    {icon:"🔬", titre:"Technologie avancée", desc:"Formules innovantes développées en laboratoire propre, combinant ingrédients naturels et technologies de pointe."},
+    {icon:"💧", titre:"Eau ultra pure", desc:"Tous les produits sont formulés avec de l'eau ultra pure provenant de puits profonds aux normes pharmaceutiques."},
+    {icon:"🌱", titre:"Écologie respectée", desc:"Processus de production conçus pour réduire l'impact environnemental. Zéro danger pour les ressources naturelles."},
+    {icon:"🏅", titre:"Certifiés GMP/ISO", desc:"Les normes de qualité les plus élevées, confirmées par des certificats internationaux reconnus."},
+    {icon:"🛡️", titre:"Ingrédients sûrs", desc:"Contrôle qualité à plusieurs niveaux. Ingrédients d'origine naturelle et composants provenant de fabricants renommés."},
+  ];
+  atouts.forEach(function(a) {
+    var div = document.createElement("div"); div.className="avantage";
+    div.innerHTML = "<span class='avantage-icon'>"+a.icon+"</span><div class='avantage-text'><h3>"+a.titre+"</h3><p>"+a.desc+"</p></div>";
+    mihiCard.appendChild(div);
+  });
+  section.appendChild(mihiCard);
+
+  // IDÉES REÇUES
+  var ideesCard = document.createElement("div"); ideesCard.className="card";
+  ideesCard.innerHTML="<h2>🙅 Les idées reçues sur le MLM</h2><p style='color:#666;font-size:13px;margin-bottom:14px;'>On entend tout et n'importe quoi. Voilà la vérité :</p>";
+  var idees = [
+    {idee:"C'est du porte-à-porte ou du démarchage", verite:"Faux ! Tout se passe en ligne — ta boutique, tes commandes, ton académie. Zéro démarchage agressif."},
+    {idee:"Il faut avoir un réseau pour réussir", verite:"Faux ! La majorité de nos VDI ont démarré de zéro. L'académie t'apprend à développer ton réseau naturellement."},
+    {idee:"Je dois acheter du stock", verite:"Faux ! Aucun stock obligatoire. Tes clientes commandent directement sur ta boutique en ligne."},
+    {idee:"C'est réservé aux femmes à l'aise avec la vente", verite:"Faux ! L'académie et Phénix ton coach IA t'accompagnent pas à pas — même sans expérience."},
+    {idee:"Il faut y consacrer beaucoup de temps", verite:"Faux ! Nos VDI travaillent en moyenne 4 à 8h par semaine. Tu choisis ton rythme."},
+    {idee:"Je vais déranger mes amis et ma famille", verite:"Notre méthode est basée sur le contenu et l'attraction — pas sur le démarchage de tes proches."},
+  ];
+  idees.forEach(function(item) {
+    var row = document.createElement("div"); row.style.cssText = "border-radius:10px;margin-bottom:10px;overflow:hidden;border:1px solid #e8d4b0;";
+    var faux = document.createElement("div"); faux.style.cssText = "background:#fee;padding:10px 14px;display:flex;align-items:flex-start;gap:8px;";
+    faux.innerHTML = "<span style='font-size:16px;flex-shrink:0;'>❌</span><p style='color:#c0392b;font-size:13px;font-style:italic;margin:0;line-height:1.5;'>"+item.idee+"</p>";
+    var vrai = document.createElement("div"); vrai.style.cssText = "background:#e6f7ec;padding:10px 14px;display:flex;align-items:flex-start;gap:8px;";
+    vrai.innerHTML = "<span style='font-size:16px;flex-shrink:0;'>✅</span><p style='color:#27AE60;font-size:13px;margin:0;line-height:1.5;'>"+item.verite+"</p>";
+    row.appendChild(faux); row.appendChild(vrai); ideesCard.appendChild(row);
+  });
+  section.appendChild(ideesCard);
+
+  // AVANTAGES
+  var avCard = document.createElement("div"); avCard.className="card";
+  avCard.innerHTML="<h2>✨ Ce que tu obtiens</h2>";
+  var avantages = [
+    {icon:"🛍️", titre:"Boutique en ligne gratuite", desc:"Personnalisée, avec diagnostics IA, carte de fidélité, paniers partagés..."},
+    {icon:"📱", titre:"Académie Beauty Addict", desc:"Formations, outils, quiz, badges, suivi de ton activité — tout dans une app"},
+    {icon:"💰", titre:"20% à 30% de commission", desc:"Sur tes propres ventes + jusqu'à 17% sur les ventes de ton équipe"},
+    {icon:"🎯", titre:"Accompagnement personnalisé", desc:"Tu n'es jamais seule — je t'accompagne à chaque étape de ton développement"},
+    {icon:"⏰", titre:"100% flexible", desc:"Tu travailles quand tu veux, où tu veux, à ton rythme"},
+    {icon:"🌿", titre:"Produits cosmétiques premium", desc:"Gamme complète visage, corps, cheveux, maquillage — made in Europe"},
+  ];
+  avantages.forEach(function(av){
+    var d=document.createElement("div");d.className="avantage";
+    d.innerHTML="<span class='avantage-icon'>"+av.icon+"</span><div class='avantage-text'><h3>"+av.titre+"</h3><p>"+av.desc+"</p></div>";
+    avCard.appendChild(d);
+  });
+  section.appendChild(avCard);
+
+  // PROFILS RÉELS
+  var profilsCard = document.createElement("div"); profilsCard.className="card";
+  profilsCard.innerHTML="<h2>💰 Elles ont sauté le pas — voilà ce qu'elles gagnent</h2>";
+  var profils = [
+    {emoji:"👩", prenom:"Marie", job:"Coiffeuse", temps:"6h/semaine", clientes:"12 clientes régulières", gain:"420"},
+    {emoji:"👩", prenom:"Julie", job:"Maman au foyer", temps:"4h/semaine", clientes:"8 clientes", gain:"320"},
+    {emoji:"👩", prenom:"Sarah", job:"Salariée", temps:"8h/semaine", clientes:"20 clientes", gain:"790"},
+  ];
+  profils.forEach(function(p) {
+    var card = document.createElement("div");
+    card.style.cssText = "background:#f8f3ee;border-radius:12px;padding:16px;margin-bottom:12px;border:1px solid #e8d4b0;display:flex;align-items:center;gap:14px;";
+    card.innerHTML = "<div style='font-size:36px;flex-shrink:0;'>"+p.emoji+"</div><div style='flex:1;'><p style='color:#3a3a3a;font-size:14px;font-weight:bold;margin:0 0 2px;'>"+p.prenom+" — "+p.job+"</p><p style='color:#999;font-size:12px;margin:0 0 6px;'>"+p.temps+" • "+p.clientes+"</p><p style='color:#c9a86a;font-size:20px;font-weight:bold;margin:0;'>"+p.gain+" €<span style='color:#999;font-size:12px;font-weight:normal;'>/mois</span></p></div>";
+    profilsCard.appendChild(card);
+  });
+  var noteP = document.createElement("p"); noteP.style.cssText="color:#999;font-size:11px;text-align:center;margin:8px 0 0;font-style:italic;"; noteP.textContent="Revenus moyens constatés dans notre équipe. Les résultats varient selon l'investissement personnel.";
+  profilsCard.appendChild(noteP);
+  section.appendChild(profilsCard);
+
+  // PALIERS
+  var palierCard=document.createElement("div");palierCard.className="card";
+  palierCard.innerHTML="<h2>🏆 Les statuts Mihi</h2>";
+  PALIERS.forEach(function(p){
+    var row=document.createElement("div");row.className="palier";
+    row.innerHTML="<div><p class='palier-nom'>"+p.nom+"</p><p class='palier-ca'>"+p.min.toLocaleString("fr-FR")+"€"+(p.max<99999?" → "+p.max.toLocaleString("fr-FR")+"€":" et +")+"</p></div><p class='palier-comm'>"+p.comm+"% + "+p.equipe+"% équipe</p>";
+    palierCard.appendChild(row);
+  });
+  section.appendChild(palierCard);
+
+  // SIMULATEUR
+  var simCard=document.createElement("div");simCard.className="card";
+  simCard.innerHTML="<h2>💰 Simulateur de revenus</h2>";
+  var simDiv=document.createElement("div");simDiv.className="simulateur";
+
+  var caLabel=document.createElement("span");caLabel.className="sim-label";caLabel.textContent="Ton CA mensuel estimé";simDiv.appendChild(caLabel);
+  var caSlider=document.createElement("input");caSlider.type="range";caSlider.className="sim-slider";caSlider.min="0";caSlider.max="5000";caSlider.value="500";caSlider.step="50";simDiv.appendChild(caSlider);
+  var caVal=document.createElement("div");caVal.className="sim-value";caVal.textContent="500 €";simDiv.appendChild(caVal);
+
+  var eqLabel=document.createElement("span");eqLabel.className="sim-label";eqLabel.textContent="CA de ton équipe (optionnel)";simDiv.appendChild(eqLabel);
+  var eqSlider=document.createElement("input");eqSlider.type="range";eqSlider.className="sim-slider";eqSlider.min="0";eqSlider.max="10000";eqSlider.value="0";eqSlider.step="100";simDiv.appendChild(eqSlider);
+  var eqVal=document.createElement("div");eqVal.className="sim-value";eqVal.textContent="0 €";simDiv.appendChild(eqVal);
+
+  var resultBox=document.createElement("div");resultBox.className="result-box";
+  var simResultEl=document.createElement("p");simResultEl.className="big";simResultEl.textContent="150 €/mois";
+  var simPalierEl=document.createElement("p");simPalierEl.className="palier-actuel";simPalierEl.textContent="Statut : Conseiller Principal";
+  var simTitleEl=document.createElement("p");simTitleEl.textContent="Tes revenus estimés";
+  resultBox.appendChild(simTitleEl);resultBox.appendChild(simResultEl);resultBox.appendChild(simPalierEl);
+  simDiv.appendChild(resultBox);
+
+  function updateSim() {
+    var ca=parseInt(caSlider.value);
+    var eq=parseInt(eqSlider.value);
+    caVal.textContent=ca.toLocaleString("fr-FR")+" €";
+    eqVal.textContent=eq.toLocaleString("fr-FR")+" €";
+    var palier=getPalier(ca);
+    var gainPerso=Math.round(ca*palier.comm/100);
+    var gainEquipe=Math.round(eq*palier.equipe/100);
+    var total=gainPerso+gainEquipe;
+    simResultEl.textContent=total.toLocaleString("fr-FR")+" €/mois";
+    simPalierEl.textContent="Statut : "+palier.nom+" • "+palier.comm+"% perso + "+palier.equipe+"% équipe";
+  }
+  caSlider.oninput=updateSim;eqSlider.oninput=updateSim;
+  simCard.appendChild(simDiv);section.appendChild(simCard);
+  updateSim();
+
+  // TEMOIGNAGES
+  var temCard=document.createElement("div");temCard.className="card";
+  temCard.innerHTML="<h2>💬 Elles ont sauté le pas</h2>";
+  var temoignages=[
+    {texte:"Je n'aurais jamais pensé pouvoir avoir ma propre boutique en ligne. Aujourd'hui mes clientes commandent directement et je reçois une notification à chaque vente !", nom:"Sarah, 3 mois dans l'équipe"},
+    {texte:"L'académie m'a tout appris. Les formations, les outils, l'accompagnement — je me sens vraiment professionnelle dans ma façon de travailler.", nom:"Léa, 6 mois dans l'équipe"},
+    {texte:"Ce qui m'a convaincue c'est la boutique gratuite. Chez Mihi elle est payante, ici elle est offerte et en plus elle est magnifique !", nom:"Marine, 1 an dans l'équipe"},
+  ];
+  temoignages.forEach(function(t){
+    var div=document.createElement("div");div.className="temoignage";
+    div.innerHTML="<p>"+t.texte+"</p><span>— "+t.nom+"</span>";
+    temCard.appendChild(div);
+  });
+  section.appendChild(temCard);
+
+  // FAQ
+  var faqCard=document.createElement("div");faqCard.className="card";
+  faqCard.innerHTML="<h2>❓ Questions fréquentes</h2>";
+  var faqs=[
+    {q:"C'est quoi Mihi ?", r:"Mihi est une entreprise polonaise de cosmétiques premium vendus en vente directe. Gamme complète beauté, corps, cheveux, maison — made in Europe."},
+    {q:"Combien ça coûte pour commencer ?", r:"Rien ! Aucun frais d'inscription, aucun kit obligatoire, aucun stock à acheter. Tu commences gratuitement."},
+    {q:"Comment je gagne de l'argent ?", r:"Tu gagnes 20 à 30% de commission sur tes ventes personnelles, plus un pourcentage sur les ventes de ton équipe selon ton statut."},
+    {q:"Je n'ai jamais vendu de ma vie, c'est possible quand même ?", r:"Absolument ! L'académie BAA te forme pas à pas avec des modules, quiz et outils adaptés aux débutantes."},
+    {q:"Combien de temps dois-je y consacrer ?", r:"C'est 100% flexible. Certaines de nos VDI travaillent 2h par semaine, d'autres 20h. Tu choisis ton rythme selon tes objectifs."},
+  ];
+  faqs.forEach(function(f){
+    var faqDiv=document.createElement("div");
+    faqDiv.style.cssText="margin-bottom:12px;border-bottom:1px solid #f0e6d3;padding-bottom:12px;";
+    faqDiv.innerHTML="<p style='color:#3a3a3a;font-size:13px;font-weight:bold;margin:0 0 4px;'>"+f.q+"</p><p style='color:#666;font-size:13px;line-height:1.5;margin:0;'>"+f.r+"</p>";
+    faqCard.appendChild(faqDiv);
+  });
+  section.appendChild(faqCard);
+
+  // COMPTEUR ÉQUIPE
+  var PLACES_MAX = 6; // Nombre max de recrues par mois
+  var equipeCard = document.createElement("div"); equipeCard.className="card";
+  equipeCard.style.cssText += "background:linear-gradient(135deg,#1a0a00,#3a1f05);text-align:center;";
+  equipeCard.innerHTML = "<p style='color:#f5d48a;font-size:11px;font-weight:bold;margin:0 0 12px;letter-spacing:2px;'>🔥 CE MOIS-CI</p>";
+  var statGrid = document.createElement("div"); statGrid.className="stat-grid";
+  var membresStat = document.createElement("div"); membresStat.style.cssText="background:rgba(255,255,255,0.1);border-radius:12px;padding:14px;text-align:center;";
+  membresStat.innerHTML = "<p style='color:#f5d48a;font-size:28px;font-weight:bold;margin:0;' id='nb-recrues'>...</p><p style='color:rgba(255,255,255,0.6);font-size:11px;margin-top:2px;'>personnes ont rejoint</p>";
+  var placesStat = document.createElement("div"); placesStat.style.cssText="background:rgba(255,255,255,0.1);border-radius:12px;padding:14px;text-align:center;";
+  placesStat.innerHTML = "<p style='color:#27AE60;font-size:28px;font-weight:bold;margin:0;' id='nb-places'>...</p><p style='color:rgba(255,255,255,0.6);font-size:11px;margin-top:2px;'>places restantes</p>";
+  statGrid.appendChild(membresStat); statGrid.appendChild(placesStat);
+  equipeCard.appendChild(statGrid);
+  var urgenceP = document.createElement("p"); urgenceP.style.cssText="color:rgba(255,255,255,0.7);font-size:12px;margin-top:12px;line-height:1.5;";
+  urgenceP.textContent = "Les places sont limitées pour garantir un accompagnement de qualité 🌿";
+  equipeCard.appendChild(urgenceP);
+  section.appendChild(equipeCard);
+
+  // Charger le nombre de recrues ce mois-ci
+  var maintenant = new Date();
+  var debutMois = new Date(maintenant.getFullYear(), maintenant.getMonth(), 1).toISOString();
+  db.collection("users").where("accountStatus","==","active").where("createdAt",">=",debutMois).get().then(function(snap){
+    var nbRecrues = snap.size;
+    var nbPlaces = Math.max(0, PLACES_MAX - nbRecrues);
+    var elRecrues = document.getElementById("nb-recrues");
+    var elPlaces = document.getElementById("nb-places");
+    if (elRecrues) elRecrues.textContent = nbRecrues;
+    if (elPlaces) {
+      elPlaces.textContent = nbPlaces;
+      elPlaces.style.color = nbPlaces <= 2 ? "#e74c3c" : "#27AE60";
+    }
+  }).catch(function(){
+    // Si l'index n'existe pas, afficher des valeurs par défaut
+    var elRecrues = document.getElementById("nb-recrues");
+    var elPlaces = document.getElementById("nb-places");
+    if (elRecrues) elRecrues.textContent = "3";
+    if (elPlaces) elPlaces.textContent = "3";
+  });
+
+  // AVIS MEMBRES
+  var avisCard = document.createElement("div"); avisCard.className="card";
+  avisCard.innerHTML="<h2>⭐ Ce que disent nos membres</h2><div id='avis-list'><p style='color:#999;font-size:13px;text-align:center;padding:10px;'>Chargement des avis...</p></div>";
+  section.appendChild(avisCard);
+
+  db.collection("avis").where("valide","==",true).orderBy("createdAt","desc").limit(6).get().then(function(snap) {
+    var list = document.getElementById("avis-list"); if (!list) return;
+    if (snap.empty) { list.innerHTML="<p style='color:#999;font-size:13px;text-align:center;'>Sois la première à laisser un avis !</p>"; return; }
+    list.innerHTML = "";
+    snap.forEach(function(doc) {
+      var a = doc.data();
+      var etoiles = "";
+      for (var i=1;i<=5;i++) { etoiles += i<=a.note ? "⭐" : "☆"; }
+      var div = document.createElement("div");
+      div.style.cssText = "background:#f8f3ee;border-radius:12px;padding:14px;margin-bottom:10px;border-left:3px solid #c9a86a;";
+      div.innerHTML = "<div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;'><span style='font-size:16px;'>"+etoiles+"</span><span style='color:#8b735d;font-size:11px;font-weight:bold;'>"+( a.prenom||"Membre")+"</span></div><p style='color:#555;font-size:13px;line-height:1.6;font-style:italic;margin:0;'>\""+a.texte+"\"</p>";
+      list.appendChild(div);
+    });
+  }).catch(function(){ 
+    var list = document.getElementById("avis-list"); 
+    if (list) list.innerHTML="<p style='color:#999;font-size:13px;text-align:center;'>Avis bientôt disponibles !</p>"; 
+  });
+
+  // POPUP "TU ATTENDS QUOI" après 70% de scroll
+  var popupShown = false;
+  window.addEventListener("scroll", function() {
+    if (popupShown) return;
+    var scrollPct = (window.scrollY + window.innerHeight) / document.body.scrollHeight;
+    if (scrollPct < 0.70) return;
+    popupShown = true;
+
+    var popup = document.createElement("div");
+    popup.style.cssText = "position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:999999;width:90%;max-width:400px;background:linear-gradient(135deg,#1a0a00,#2d1200);border:1px solid #c9a86a;border-radius:20px;padding:24px;box-shadow:0 8px 40px rgba(0,0,0,0.4);font-family:Arial,sans-serif;animation:slideUp 0.5s ease;";
+
+    var style = document.createElement("style");
+    style.textContent = "@keyframes slideUp{from{opacity:0;transform:translateX(-50%) translateY(30px);}to{opacity:1;transform:translateX(-50%) translateY(0);}}";
+    document.head.appendChild(style);
+
+    popup.innerHTML = "<button id='close-popup-tilt' style='position:absolute;top:12px;right:14px;background:none;border:none;color:#c9a86a;font-size:18px;cursor:pointer;'>✕</button>" +
+      "<p style='font-size:24px;text-align:center;margin:0 0 10px;'>💛</p>" +
+      "<p style='color:#f5d48a;font-size:15px;font-weight:bold;text-align:center;margin:0 0 8px;font-family:Georgia,serif;'>Tu lis encore cette page...</p>" +
+      "<p style='color:rgba(255,255,255,0.7);font-size:13px;text-align:center;margin:0 0 20px;line-height:1.6;'>C'est que quelque chose te parle 🌿<br>La seule question c'est : <strong style='color:#f5d48a;'>tu attends quoi ?</strong></p>" +
+      "<div style='display:flex;flex-direction:column;gap:10px;'>" +
+      "<button id='btn-rejoindre-tilt' style='background:linear-gradient(135deg,#c9a86a,#f5d48a);color:#1a0a00;border:none;padding:14px;border-radius:12px;font-weight:bold;font-size:14px;cursor:pointer;touch-action:manipulation;'>Je rejoins l'équipe 🐦‍🔥</button>" +
+      "<button id='btn-questions-tilt' style='background:rgba(255,255,255,0.1);color:#f5d48a;border:1px solid #c9a86a;padding:12px;border-radius:12px;font-size:13px;cursor:pointer;touch-action:manipulation;'>J\\'ai encore des questions 💬</button>" +
+      "</div>";
+
+    document.body.appendChild(popup);
+
+    document.getElementById("close-popup-tilt").onclick = function() { popup.remove(); };
+
+    document.getElementById("btn-rejoindre-tilt").onclick = function() {
+      popup.remove();
+      var formEl = document.getElementById("f-prenom");
+      if (formEl) { formEl.scrollIntoView({behavior:"smooth",block:"center"}); formEl.focus(); }
+    };
+    document.getElementById("btn-rejoindre-tilt").addEventListener("touchend", function(e){e.preventDefault();document.getElementById("btn-rejoindre-tilt").onclick();},{passive:false});
+
+    document.getElementById("btn-questions-tilt").onclick = function() {
+      popup.remove();
+      var whatsapp = "https://wa.me/33" + ((b.tel||"").replace(/^0/,"").replace(/\s/g,"")) + "?text=Bonjour%20" + encodeURIComponent(b.prenom||"") + "%20!%20J'ai%20des%20questions%20sur%20l'%C3%A9quipe%20Mihi%20%F0%9F%8C%BF";
+      window.open(whatsapp, "_blank");
+    };
+    document.getElementById("btn-questions-tilt").addEventListener("touchend", function(e){e.preventDefault();document.getElementById("btn-questions-tilt").onclick();},{passive:false});
+  });
+
+  // FORMULAIRE
+  var formCard=document.createElement("div");formCard.className="card";
+  formCard.style.cssText+="background:linear-gradient(135deg,#f8f3ee,#f3e7d3);";
+  formCard.innerHTML="<h2>🎁 Obtiens ta boutique gratuite</h2><p style='color:#666;font-size:13px;margin-bottom:16px;line-height:1.6;'>Remplis ce formulaire et je te contacte dans les 24h pour tout t'expliquer !</p>";
+  var fields=[
+    {id:"f-prenom",label:"Ton prénom *",type:"text",placeholder:"Marie"},
+    {id:"f-email",label:"Ton email *",type:"email",placeholder:"marie@exemple.fr"},
+    {id:"f-tel",label:"Ton téléphone",type:"tel",placeholder:"06 xx xx xx xx"},
+    {id:"f-message",label:"Une question ou motivation ?",type:"textarea",placeholder:"Ex: Je cherche un complément de revenus..."},
+  ];
+  fields.forEach(function(f){
+    var fg=document.createElement("div");fg.className="form-group";
+    fg.innerHTML="<label>"+f.label+"</label>";
+    var inp;
+    if(f.type==="textarea"){inp=document.createElement("textarea");inp.rows=3;}
+    else{inp=document.createElement("input");inp.type=f.type;}
+    inp.id=f.id;inp.placeholder=f.placeholder;
+    fg.appendChild(inp);formCard.appendChild(fg);
+  });
+  var submitBtn=document.createElement("button");submitBtn.className="btn-main";submitBtn.textContent="🌿 Je veux ma boutique gratuite !";
+  var submitMsg=document.createElement("p");submitMsg.style.cssText="text-align:center;font-size:13px;color:#8b735d;margin-top:8px;";
+  submitBtn.onclick=function(){
+    var prenom=document.getElementById("f-prenom").value.trim();
+    var email=document.getElementById("f-email").value.trim();
+    if(!prenom||!email){submitMsg.textContent="Merci de remplir au moins ton prénom et ton email.";return;}
+    submitBtn.disabled=true;submitBtn.textContent="⏳ Envoi en cours...";
+    var tel=document.getElementById("f-tel").value.trim();
+    var message=document.getElementById("f-message").value.trim();
+    db.collection("prospects_recrutement").add({
+      prenom:prenom,email:email,tel:tel,motiv:message,
+      boutiqueUid:uid,date:new Date().toISOString(),statut:"nouveau"
+    }).then(function(){
+      emailjs.send("service_wr9mlhk","template_s0huhum",{
+        vdi_prenom:b.prenom||"",vdi_email:b.emailVdi||"",
+        prospect_prenom:prenom,prospect_email:email,prospect_tel:tel,prospect_message:message
+      }).catch(function(){});
+      db.collection("boutiques").doc(uid).collection("stats").doc("recrutement").set({
+        visites:firebase.firestore.FieldValue.increment(0),
+        derniereInscription:new Date().toISOString()
+      },{merge:true}).catch(function(){});
+      formCard.innerHTML="<div style='text-align:center;padding:20px;'><p style='font-size:48px;margin-bottom:12px;'>🎉</p><h2 style='color:#27AE60;margin-bottom:8px;'>Demande envoyée !</h2><p style='color:#666;font-size:14px;line-height:1.6;'>Merci "+prenom+" ! Je te contacte dans les 24h pour tout t'expliquer et te donner accès à ta boutique gratuite 🌿</p></div>";
+    }).catch(function(e){submitMsg.textContent="Erreur. Réessaie.";submitBtn.disabled=false;submitBtn.textContent="🌿 Je veux ma boutique gratuite !";});
+  };
+  formCard.appendChild(submitBtn);formCard.appendChild(submitMsg);section.appendChild(formCard);
+
+  // LIEN PARRAINAGE
+  if(b.lienParrainage){
+    var parrainCard=document.createElement("div");parrainCard.className="card";parrainCard.style.cssText+="text-align:center;";
+    parrainCard.innerHTML="<h2>🔗 Tu préfères t'inscrire directement ?</h2><p style='color:#666;font-size:13px;margin-bottom:14px;line-height:1.6;'>Tu peux aussi rejoindre directement via le site Mihi avec mon lien de parrainage :</p>";
+    var parrainBtn=document.createElement("a");parrainBtn.href=b.lienParrainage;parrainBtn.target="_blank";parrainBtn.className="btn-main";parrainBtn.style.cssText+="display:block;text-decoration:none;text-align:center;";
+    parrainBtn.textContent=b.texteParrainage||"Rejoins mon équipe 🐦‍🔥";
+    parrainCard.appendChild(parrainBtn);section.appendChild(parrainCard);
+  }
+
+  // FOOTER
+  var footer=document.createElement("div");footer.className="footer";
+  footer.innerHTML="<p>Plateforme créée par "+( b.prenom||"votre conseillère")+" — Conseillère indépendante Mihi</p><p style='margin-top:4px;'>Cette page n'est pas le site officiel Mihi</p>";
+  section.appendChild(footer);
+
+  app.appendChild(section);
+
+  // Enregistrer la visite
+  db.collection("boutiques").doc(uid).collection("stats").doc("recrutement").set({
+    visites:firebase.firestore.FieldValue.increment(1),
+    derniereVisite:new Date().toISOString()
+  },{merge:true}).catch(function(){});
+}
+
+// Charger les données
+var uid = getUid();
+if (!uid) {
+  document.getElementById("app").innerHTML = "<div style='text-align:center;padding:60px 20px;'><p style='color:#e74c3c;font-size:16px;'>Lien invalide. Demande le lien correct à ta conseillère.</p></div>";
+} else {
+  db.collection("boutiques").doc(uid).get().then(function(snap) {
+    if (!snap.exists || !snap.data().actif) {
+      document.getElementById("app").innerHTML = "<div style='text-align:center;padding:60px 20px;'><p style='color:#8b735d;font-size:16px;'>Cette page n'est pas encore configurée.</p></div>";
+      return;
+    }
+    renderPage(snap.data());
+  }).catch(function(e) {
+    document.getElementById("app").innerHTML = "<div style='text-align:center;padding:60px 20px;'><p style='color:#e74c3c;'>Erreur de chargement.</p></div>";
+  });
+}
+</script>
+</body>
+</html>
