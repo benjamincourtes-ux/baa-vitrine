@@ -59,6 +59,8 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+ <script>emailjs.init("D_JtKhPDgOQWi_ECO");</script>
+ <script>emailjs.init("D_JtKhPDgOQWi_ECO");</script>
 <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
@@ -1409,9 +1411,6 @@ auth.onAuthStateChanged(function(user) {
     btn.style.color = user ? "#1a0a00" : "#8b735d";
   }
 });
-
-// Initialiser EmailJS
-emailjs.init("D_JtKhPDgOQWi_ECO");
 
 // uid global
 var uid = new URLSearchParams(window.location.search).get("uid") || null;
