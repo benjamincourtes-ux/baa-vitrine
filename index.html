@@ -1325,7 +1325,7 @@ function commander(useStripe) {
     var email = document.getElementById("coord-email").value.trim();
     if (!nom||!prenom||!adresse||!cp||!ville||!tel||!email) { alert("Merci de remplir tous les champs."); return; }
 
-    var lignes = [];
+   var lignes = [];
     Object.keys(panier).forEach(function(ref) {
       var prod = getProduitByRef(ref);
       if (prod && panier[ref] > 0) lignes.push(panier[ref] + "x " + prod.nom);
@@ -1336,8 +1336,7 @@ function commander(useStripe) {
     var stripeUrl = boutique.stripeKey || null;
     var redirectUrl = useStripe && stripeUrl ? stripeUrl : paypalUrl;
 
-    // Sauvegarder la commande EN ATTENTE (pas encore confirmée)
-    var commandeRef = null;
+    // Sauvegarder la commande EN ATTENTE d'abord
     var commandeData = {
       clientNom: prenom + " " + nom,
       clientEmail: email,
@@ -1352,14 +1351,7 @@ function commander(useStripe) {
     };
     if (clientActuel) commandeData.clientUid = clientActuel.uid;
 
-    db.collection("commandes_clients").add(commandeData).then(function(ref) {
-      commandeRef = ref.id;
-    }).catch(function(){});
-
-    // Tampon fidélité — seulement si paiement confirmé plus tard
-    // (déplacé dans la confirmation VDI)
-
-    // Email confirmation à la CLIENTE immédiatement
+    // Email confirmation cliente
     if (email) {
       try {
         emailjs.send("service_wr9mlhk", "template_sq7ofz6", {
@@ -1369,19 +1361,33 @@ function commander(useStripe) {
           commande_detail: lignes.join("\n"),
           total: montant + "€"
         });
-      } catch(e) { console.log("Email cliente error:", e); }
+      } catch(e) {}
     }
 
-    // PAS d'email VDI ici — sera envoyé quand elle confirme le paiement
-    // PAS de stats ici — sera incrémenté à la confirmation
-
-    formModal.remove();
-    if (navigator.clipboard) {
-      navigator.clipboard.writeText(note).then(function() {
-        alert("✅ Coordonnées et commande copiées !\n\nCollez-les dans le message PayPal.");
-        window.open(redirectUrl, "_blank");
-      });
-    } else { window.open(redirectUrl, "_blank"); }
+    // Sauvegarder puis rediriger
+    db.collection("commandes_clients").add(commandeData).then(function() {
+      formModal.remove();
+      if (useStripe && stripeUrl) {
+        // Paiement Stripe via API
+        fetch("https://baa-vitrine.vercel.app/api/checkout", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ montant: montant, stripeKey: stripeUrl, boutiqueNom: boutique.prenom || "Boutique Mihi" })
+        }).then(function(r) { return r.json(); }).then(function(data) {
+          if (data.url) { window.location.href = data.url; }
+          else { alert("Erreur Stripe. Réessayez."); }
+        }).catch(function() { alert("Erreur de connexion Stripe."); });
+      } else {
+        if (navigator.clipboard) {
+          navigator.clipboard.writeText(note).then(function() {
+            alert("✅ Coordonnées copiées !\n\nCollez-les dans le message PayPal.");
+            window.open(redirectUrl, "_blank");
+          });
+        } else { window.open(redirectUrl, "_blank"); }
+      }
+    }).catch(function() {
+      alert("Erreur de sauvegarde. Réessayez.");
+    });
   };
   formBox.appendChild(valBtn);
   formModal.appendChild(formBox);
