@@ -1232,7 +1232,7 @@ function commanderStripe() {
       if(data.url){
         // Sauvegarder commande dans Firebase
         if(clientActuel){
-          try{db.collection("commandes_clients").add({clientUid:clientActuel.uid,clientNom:prenom2+" "+nom2,clientEmail:email2,boutiqueUid:uid,boutiquePrenom:boutique.prenom||"",detail:articles.map(function(a){return a.quantite+"x "+a.nom;}).join(", "),total:(totalPanier()+getFraisPort()).toFixed(2)+"€",date:new Date().toISOString(),adresse:adresse2+", "+cp2+" "+ville2,tel:tel2,paiement:"stripe"});}catch(e){}
+          try{db.collection("commandes_clients").add({clientUid:clientActuel.uid,clientNom:prenom2+" "+nom2,clientEmail:email2,boutiqueUid:uid,boutiquePrenom:boutique.prenom||"",detail:articles.map(function(a){return a.quantite+"x "+a.nom;}).join(", "),total:(totalPanier()+getFraisPort()).toFixed(2)+"€",date:new Date().toISOString(),adresse:adresse2+", "+cp2+" "+ville2,tel:tel2,paiement:"stripe",statut:"en_attente"});}catch(e){}
         }
         window.location.href=data.url;
       } else {
