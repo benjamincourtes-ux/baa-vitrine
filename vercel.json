@@ -7,7 +7,10 @@
     },
     {
       "src": "index.html",
-      "use": "@vercel/static"
+      "use": "@vercel/static",
+      "config": {
+        "cache-control": "no-cache, no-store, must-revalidate"
+      }
     }
   ],
   "routes": [
@@ -17,7 +20,10 @@
     },
     {
       "src": "/(.*)",
-      "dest": "/index.html"
+      "dest": "/index.html",
+      "headers": {
+        "cache-control": "no-cache, no-store, must-revalidate"
+      }
     }
   ]
 }
